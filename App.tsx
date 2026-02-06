@@ -100,11 +100,25 @@ const App: React.FC = () => {
       
       setState({ isGenerating: false, progressMessage: '', error: null });
     } catch (err: any) {
-      console.error(err);
+      console.error('Stage generation error:', err);
+      
+      // Provide more specific error messages
+      let errorMessage = 'The machine failed to respond.';
+      
+      if (err?.message?.includes('API_KEY') || err?.message?.includes('500')) {
+        errorMessage = 'API_KEY is missing on the server. Please set it in your environment variables.';
+      } else if (err?.message?.includes('API key')) {
+        errorMessage = `API key error: ${err.message}`;
+      } else if (err?.message?.includes('quota') || err?.message?.includes('rate limit')) {
+        errorMessage = 'API quota or rate limit exceeded. Please try again later.';
+      } else if (err?.message) {
+        errorMessage = `Error: ${err.message}`;
+      }
+      
       setState({ 
         isGenerating: false, 
         progressMessage: '', 
-        error: 'The machine failed to respond. Please check your connection and environment key.' 
+        error: errorMessage
       });
     }
   };

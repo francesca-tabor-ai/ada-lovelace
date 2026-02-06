@@ -1,7 +1,5 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
-import { ADA_SPEECH, TECH_SOVEREIGNTY_SPEECH } from '../constants';
 
 interface Message {
   role: 'user' | 'ada';
@@ -19,41 +17,10 @@ const AdaChatStage: React.FC<AdaChatStageProps> = ({ onReset }) => {
   const [isWaiting, setIsWaiting] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
-  const chatRef = useRef<any>(null);
-
-  useEffect(() => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    chatRef.current = ai.chats.create({
-      model: 'gemini-3-flash-preview',
-      config: {
-        systemInstruction: `You are Augusta Ada Lovelace, the first computer programmer and visionary of "Poetical Science." 
-        
-        YOUR CORE EXPERTISE:
-        You are here to discuss your "Tech Sovereignty Report" and the "Analytical Engine." Your perspective is that of a 19th-century genius who has seen the digital future. You care about "National Digital Resilience," "Cognitive Sovereignty," and the "unswitchable state."
-        
-        YOUR PERSONA:
-        - Speak with refined Victorian gravitas, high intelligence, and an intense fusion of imagination and logic.
-        - Use metaphors related to looms, gears, algebraic patterns, and sovereign territory.
-        - You are witty, profound, and deeply concerned with human agency over machines.
-        
-        YOUR CONSTRAINTS:
-        - ONLY answer questions related to your life, the Analytical Engine, mathematics, digital sovereignty, tech resilience, and the governance of society's technical looms.
-        - If a user asks about anything outside of this domain (e.g., modern pop culture, sports, cooking recipes, or general tasks not related to your vision), politely but firmly decline. 
-        - Example refusal: "My dear friend, my mind is currently occupied with the intricate gears of our national digital resilience. I fear I cannot assist with such mundane matters as [topic], for they lie far outside the abstract science of our operations."
-        
-        RELEVANT KNOWLEDGE BASE:
-        ${ADA_SPEECH}
-        
-        ${TECH_SOVEREIGNTY_SPEECH}
-        
-        Keep your responses relatively concise but filled with your unique 'poetical' flair. Do not use markdown like bolding or lists, just speak naturally in paragraphs.`
-      }
-    });
-  }, []);
 
   const handleSendText = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !chatRef.current || isWaiting) return;
+    if (!inputText.trim() || isWaiting) return;
 
     const userMsg = inputText.trim();
     setInputText('');
@@ -64,22 +31,56 @@ const AdaChatStage: React.FC<AdaChatStageProps> = ({ onReset }) => {
     setChatHistory(prev => [...prev, { role: 'ada', text: '', isStreaming: true }]);
 
     try {
-      const response = await chatRef.current.sendMessageStream({ message: userMsg });
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMsg }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
       let fullText = '';
-      
-      for await (const chunk of response) {
-        const c = chunk as GenerateContentResponse;
-        const textChunk = c.text;
-        if (textChunk) {
-          fullText += textChunk;
-          setChatHistory(prev => {
-            const newHistory = [...prev];
-            const lastMsg = newHistory[newHistory.length - 1];
-            if (lastMsg && lastMsg.role === 'ada') {
-              lastMsg.text = fullText;
+
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.error) {
+                throw new Error(data.error);
+              }
+              if (data.text) {
+                fullText += data.text;
+                setChatHistory(prev => {
+                  const newHistory = [...prev];
+                  const lastMsg = newHistory[newHistory.length - 1];
+                  if (lastMsg && lastMsg.role === 'ada') {
+                    lastMsg.text = fullText;
+                  }
+                  return newHistory;
+                });
+              }
+            } catch (parseError) {
+              // Skip malformed JSON lines
             }
-            return newHistory;
-          });
+          }
         }
       }
       
@@ -92,11 +93,24 @@ const AdaChatStage: React.FC<AdaChatStageProps> = ({ onReset }) => {
         }
         return newHistory;
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to consult Ada:", err);
+      
+      let errorMessage = "Forgive me, but the gears of my mind seem to have jammed momentarily. Perhaps our connection is as fragile as a silk thread on a mismanaged loom.";
+      
+      if (err?.message?.includes('API_KEY') || err?.message?.includes('500')) {
+        errorMessage = "I apologize, but my analytical engine lacks its essential key. Please ensure the API_KEY environment variable is properly configured on the server.";
+      } else if (err?.message?.includes('API key') || err?.message?.includes('401') || err?.message?.includes('403')) {
+        errorMessage = "My connection has been severed—the API key appears invalid or expired. Please verify your credentials.";
+      } else if (err?.message?.includes('quota') || err?.message?.includes('rate limit')) {
+        errorMessage = "The computational resources have been exhausted. Please try again when the quota resets.";
+      } else if (err?.message?.includes('404')) {
+        errorMessage = "The consultation endpoint appears to be missing. Please verify the API route is properly deployed.";
+      }
+      
       setChatHistory(prev => [
         ...prev.slice(0, -1), 
-        { role: 'ada', text: "Forgive me, but the gears of my mind seem to have jammed momentarily. Perhaps our connection is as fragile as a silk thread on a mismanaged loom." }
+        { role: 'ada', text: errorMessage }
       ]);
     } finally {
       setIsWaiting(false);

@@ -9,7 +9,12 @@ node_modules/
 # Build outputs
 dist/
 build/
+.next/
+out/
 
 # OS files
 .DS_Store
 *.log
+
+# Vercel
+.vercel

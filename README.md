@@ -69,3 +69,13 @@ The app isn't just a tech demo; it's a vehicle for a specific thesis on Digital 
    ```bash
    npm run dev
    ```
+
+## Deployment
+
+For deployment instructions (especially for Vercel), see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+**Key points for deployment:**
+- This is a **client-side Vite application** (not Next.js)
+- Environment variables are embedded at **build time**
+- Set `API_KEY` in your hosting platform's environment variables before building
+- The API key will be visible in the client bundle (this is expected for this architecture)

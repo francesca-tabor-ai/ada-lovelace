@@ -1,35 +1,27 @@
 
-import { GoogleGenAI, Modality } from "@google/genai";
 import { decode, decodeAudioData } from "../utils/audio";
 
 export const generateAdaImage = async (prompt: string): Promise<string> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API_KEY is not defined. Please set it in your .env.local file.");
-  }
-  
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: [{
-        parts: [{ text: prompt }],
-      }],
-      config: {
-        imageConfig: {
-          aspectRatio: "16:9",
-        },
+    const response = await fetch('/api/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ prompt }),
     });
 
-    // Iterate through parts to find inlineData (don't hardcode parts[0])
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
-    
-    console.error("Image generation response:", JSON.stringify(response, null, 2));
-    throw new Error("Failed to generate image: No image data found in response");
+
+    const data = await response.json();
+    if (!data.imageUrl) {
+      throw new Error("Failed to generate image: No image data in response");
+    }
+
+    return data.imageUrl;
   } catch (error: any) {
     console.error("Image generation error:", error);
     throw new Error(`Failed to generate image: ${error.message || error}`);
@@ -37,43 +29,26 @@ export const generateAdaImage = async (prompt: string): Promise<string> => {
 };
 
 export const generateAdaSpeechAudio = async (text: string, audioCtx: AudioContext): Promise<AudioBuffer> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API_KEY is not defined. Please set it in your .env.local file.");
-  }
-  
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ 
-        parts: [{ text: `Speak with the refined, old-fashioned British accent of a 19th-century aristocrat. Use historical gravitas, wisdom, and urgency: ${text}` }] 
-      }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
-          },
-        },
+    const response = await fetch('/api/audio', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ text }),
     });
 
-    // Iterate through parts to find inlineData (don't hardcode parts[0])
-    let base64Audio: string | undefined;
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        base64Audio = part.inlineData.data;
-        break;
-      }
-    }
-    
-    if (!base64Audio) {
-      console.error("Audio generation response:", JSON.stringify(response, null, 2));
-      throw new Error("Failed to generate speech audio: No audio data found in response");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    const rawBytes = decode(base64Audio);
+    const data = await response.json();
+    if (!data.audioData) {
+      throw new Error("Failed to generate speech audio: No audio data in response");
+    }
+
+    const rawBytes = decode(data.audioData);
     return await decodeAudioData(rawBytes, audioCtx, 24000, 1);
   } catch (error: any) {
     console.error("Audio generation error:", error);
