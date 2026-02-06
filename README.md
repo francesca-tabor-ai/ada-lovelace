@@ -45,7 +45,26 @@ The app isn't just a tech demo; it's a vehicle for a specific thesis on Digital 
    ```bash
    npm install
    ```
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set up your API key:
+   
+   To make this application work, you need a single environment variable:
+   
+   - **Variable Name**: `API_KEY`
+   - **Source**: A valid Google Gemini API Key
+   - **How to get it**:
+     - Visit [Google AI Studio](https://ai.google.dev/)
+     - Create a new API key
+     - Ensure this key is available in your execution environment as `process.env.API_KEY`
+   
+   **What this key powers:**
+   
+   This single key is used by the `@google/genai` SDK to facilitate all three of the app's core AI features:
+   - **Image Generation**: Using the `gemini-2.5-flash-image` model to create the cinematic portraits of Ada.
+   - **Text-to-Speech (TTS)**: Using the `gemini-2.5-flash-preview-tts` model to generate Ada's historical performances.
+   - **Chatbot**: Using the `gemini-3-flash-preview` model to power the specialized consultation interface.
+   
+   Set the `API_KEY` in [.env.local](.env.local) to your Gemini API key.
+
 3. Run the app:
    ```bash
    npm run dev
