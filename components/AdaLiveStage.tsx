@@ -114,27 +114,31 @@ const AdaLiveStage: React.FC<AdaLiveStageProps> = ({ onReset }) => {
 
             // 2. Handle Transcription (User)
             if (message.serverContent?.inputTranscription) {
-              const text = message.serverContent.inputTranscription.text;
-              setChatHistory(prev => {
-                const last = prev[prev.length - 1];
-                if (last && last.role === 'user' && last.isStreaming) {
-                    return [...prev.slice(0, -1), { ...last, text: last.text + text }];
-                }
-                return [...prev, { role: 'user', text, isStreaming: true }];
-              });
+              const text = message.serverContent.inputTranscription.text || '';
+              if (text) {
+                setChatHistory(prev => {
+                  const last = prev[prev.length - 1];
+                  if (last && last.role === 'user' && last.isStreaming) {
+                      return [...prev.slice(0, -1), { ...last, text: (last.text || '') + text }];
+                  }
+                  return [...prev, { role: 'user', text, isStreaming: true }];
+                });
+              }
             }
 
             // 3. Handle Transcription (Model)
             if (message.serverContent?.outputTranscription) {
-              const text = message.serverContent.outputTranscription.text;
-              currentOutputTranscription.current += text;
-              setChatHistory(prev => {
-                const last = prev[prev.length - 1];
-                if (last && last.role === 'ada' && last.isStreaming) {
-                    return [...prev.slice(0, -1), { ...last, text: last.text + text }];
-                }
-                return [...prev, { role: 'ada', text, isStreaming: true }];
-              });
+              const text = message.serverContent.outputTranscription.text || '';
+              if (text) {
+                currentOutputTranscription.current += text;
+                setChatHistory(prev => {
+                  const last = prev[prev.length - 1];
+                  if (last && last.role === 'ada' && last.isStreaming) {
+                      return [...prev.slice(0, -1), { ...last, text: (last.text || '') + text }];
+                  }
+                  return [...prev, { role: 'ada', text, isStreaming: true }];
+                });
+              }
             }
 
             // 4. Turn Complete - Finalize bubbles
